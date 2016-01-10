@@ -1,0 +1,16 @@
+{
+  "name": "ivonbot-chat",
+  "version": "1.0.0",
+  "description": "Facebook chatbot",
+  "main": "app.js",
+  "dependencies": {
+    "facebook-chat-api": "^1.0.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ivon Liu",
+  "license": "ISC"
+}
