@@ -31,7 +31,7 @@ login({
 		}
 
     if (input) {
-			rp('http://www.pandorabots.com/pandora/talk-xml?botid=9c7986ecfe378490&input='+encodeURIComponent(input)).then(function(response) {
+			rp('http://www.pandorabots.com/pandora/talk-xml?botid=9c7986ecfe378490&input='+encodeURIComponent(input)+'&custid='+message.threadID).then(function(response) {
 				xml2js.parseString(response, function(err, result) {
 					var reply = result.result.that[0];
 					api.sendMessage({body: reply}, message.threadID);
