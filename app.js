@@ -15,9 +15,9 @@ http.createServer(function(req, res) {
 }).listen(process.env.PORT || 5000);
 
 setInterval(function() {
-  http.get((process.env.HEROKU_INSTANCE || config.heroku_instance), function(res) {
-    console.log("pong");
-  });
+	rp(config.bot_url).then(function(response) {
+		console.log('pong');
+	});
 }, 300000);
 
 login({
