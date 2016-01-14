@@ -5,6 +5,7 @@ var mjAPI = require("./node_modules/mathjax-node/lib/mj-single");
 var login = require('facebook-chat-api');
 var rp = require('request-promise');
 var xml2js = require('xml2js');
+var chess = require('./garbochess.js');
 
 http.createServer(function(req, res) {
   console.log("ping");
@@ -28,37 +29,69 @@ login({
   if (err) return console.error(err);
   api.listen(function callback(err, message) {
 
-		var input = '';
-		if (message.participantIDs.length > 2) {
-			if (message.body.slice(0, 9) == '@ivonbot ' && message.body.length > 9) {
-				input = message.body.slice(9);
-			}
-		} else {
-			input = message.body;
-		}
+    //console.log(JSON.stringify(message));
 
-    if (input) {
+    if (message.attachments.length > 0
+          && message.attachments[0]
+          && message.attachments[0].image
+          && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=')
+          && message.body
+          && message.body.includes('Ivonbot to move')
+          ) {
+      chessRequest(api, message);
+    } else {
+  		var input = '';
+  		if (message.participantIDs.length > 2) {
+  			if (message.body.slice(0, 9) == '@ivonbot ' && message.body.length > 9) {
+  				input = message.body.slice(9);
+  			}
+  		} else {
+  			input = message.body;
+  		}
 
-			console.log('Received message: ' + input);
-			if (input.length > 250) {
-				input = input.slice(0, 250);
-				console.log('Shortening input to: ' + input);
-			}
+      if (input) {
 
-			if (input.slice(0, 10) == '--inverse ' && input.length > 10) {
-				inverseRequest(api, message, input.slice(10));
-			} else if (input.slice(0, 6) == '--det ' && input.length > 6) {
-				determinantRequest(api, message, input.slice(6));
-			} else {
-				pandoraRequest(api, message, input);
-			}
+  			console.log('Received message: ' + input);
+  			if (input.length > 250) {
+  				input = input.slice(0, 250);
+  				console.log('Shortening input to: ' + input);
+  			}
 
+  			if (input.slice(0, 10) == '--inverse ' && input.length > 10) {
+  				inverseRequest(api, message, input.slice(10));
+  			} else if (input.slice(0, 6) == '--det ' && input.length > 6) {
+  				determinantRequest(api, message, input.slice(6));
+  			} else {
+  				pandoraRequest(api, message, input);
+  			}
+
+      }
     }
 
   });
 });
 
 /** Handle different types of requests **/
+function chessRequest(api, message) {
+  var url = message.attachments[0].image;
+  var fen = decodeURIComponent(url.split('=')[1].split('&')[0]);
+  if (message.body.includes('(White)')) {
+    fen += " w";
+  } else if (message.body.includes('(Black)')) {
+    fen += " b";
+  } else {
+    return;
+  }
+  fen += ' KQkq -';
+
+  chess.resetGame();
+  chess.initializeFromFen(fen);
+  chess.search(function(bestMove, value, timeTaken, ply){
+    var move = chess.getMoveSAN(bestMove);
+    api.sendMessage({body: '@fbchess '+move}, message.threadID);
+  }, 99, null);
+}
+
 function inverseRequest(api, message, input) {
 	var matrix = parseMatrix(input);
   if (!matrix) {
