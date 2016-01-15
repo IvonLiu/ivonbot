@@ -1954,6 +1954,7 @@ function UnmakeMove(move){
 function ExposesCheck(from, kingPos){
     var index = kingPos - from + 128;
     // If a queen can't reach it, nobody can!
+    if (!g_vectorDelta[index]) return false;
     if ((g_vectorDelta[index].pieceMask[0] & (1 << (pieceQueen))) != 0) {
         var delta = g_vectorDelta[index].delta;
         var pos = kingPos + delta;
@@ -1979,6 +1980,7 @@ function IsSquareOnPieceLine(target, from) {
 function IsSquareAttackableFrom(target, from){
     var index = from - target + 128;
     var piece = g_board[from];
+    if (!g_vectorDelta[index]) return false;
     if (g_vectorDelta[index].pieceMask[(piece >> 3) & 1] & (1 << (piece & 0x7))) {
         // Yes, this square is pseudo-attackable.  Now, check for real attack
 		var inc = g_vectorDelta[index].delta;

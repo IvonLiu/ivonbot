@@ -30,6 +30,7 @@ login({
   api.listen(function callback(err, message) {
 
     //console.log(JSON.stringify(message));
+    if (!message) return;
 
     if (message.attachments.length > 0
           && message.attachments[0]
