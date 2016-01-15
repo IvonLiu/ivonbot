@@ -96,7 +96,7 @@ function chessRequest(api, message) {
 }
 
 function echoRequest(api, message, input) {
-  api.sendMessage({body: message.body}, message.threadID);
+  api.sendMessage({body: input}, message.threadID);
 }
 
 function inverseRequest(api, message, input) {
