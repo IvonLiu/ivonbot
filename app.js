@@ -58,7 +58,9 @@ login({
   				console.log('Shortening input to: ' + input);
   			}
 
-  			if (input.slice(0, 10) == '--inverse ' && input.length > 10) {
+        if (input.slice(0, 7) == '--echo ' && input.length > 7) {
+          echoRequest(api, message, input.slice(7));
+        } else if (input.slice(0, 10) == '--inverse ' && input.length > 10) {
   				inverseRequest(api, message, input.slice(10));
   			} else if (input.slice(0, 6) == '--det ' && input.length > 6) {
   				determinantRequest(api, message, input.slice(6));
@@ -91,6 +93,10 @@ function chessRequest(api, message) {
     var move = chess.getMoveSAN(bestMove);
     api.sendMessage({body: '@fbchess '+move}, message.threadID);
   }, 99, null);
+}
+
+function echoRequest(api, message, input) {
+  api.sendMessage({body: message.body}, message.threadID);
 }
 
 function inverseRequest(api, message, input) {
