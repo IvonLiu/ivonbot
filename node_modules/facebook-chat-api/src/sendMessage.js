@@ -17,9 +17,10 @@ module.exports = function(defaultFuncs, api, ctx) {
       var form = {
         upload_1024: attachments[i],
       };
+
       uploads.push(defaultFuncs
         .postFormData("https://upload.facebook.com/ajax/mercury/upload.php", ctx.jar, form, {})
-        .then(utils.parseAndCheckLogin)
+        .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
         .then(function (resData) {
           if (resData.error) {
             throw resData;
@@ -55,7 +56,7 @@ module.exports = function(defaultFuncs, api, ctx) {
     var threadIDType = utils.getType(threadID);
 
     if(msgType !== "String" && msgType !== "Object") {
-      throw {error: "Message should be of type string or object and not " + threadIDType + "."};
+      throw {error: "Message should be of type string or object and not " + msgType + "."};
     }
 
     // Changing this to accomodate an array of users
@@ -81,6 +82,10 @@ module.exports = function(defaultFuncs, api, ctx) {
       'message_batch[0][is_cleared]' : false,
       'message_batch[0][is_forward]' : false,
       'message_batch[0][is_filtered_content]' : false,
+      'message_batch[0][is_filtered_content_bh]':false,
+      'message_batch[0][is_filtered_content_account]':false,
+      'message_batch[0][is_filtered_content_quasar]':false,
+      'message_batch[0][is_filtered_content_invalid_app]':false,
       'message_batch[0][is_spoof_warning]' : false,
       'message_batch[0][source]' : 'source:chat:web',
       'message_batch[0][source_tags][0]' : 'source:chat',
@@ -91,6 +96,7 @@ module.exports = function(defaultFuncs, api, ctx) {
       'message_batch[0][offline_threading_id]' : messageAndOTID,
       'message_batch[0][message_id]' : messageAndOTID,
       'message_batch[0][threading_id]': utils.generateThreadingID(ctx.clientID),
+      'message_batch[0][ephemeral_ttl_mode]:': '0',
       'message_batch[0][manual_retry_cnt]' : '0',
       'message_batch[0][has_attachment]' : false,
       'message_batch[0][signatureID]' : utils.getSignatureID(),
@@ -154,15 +160,17 @@ module.exports = function(defaultFuncs, api, ctx) {
           form['message_batch[0][specific_to_list][' + i + ']'] = "fbid:" + threadID[i];
         }
         form['message_batch[0][specific_to_list][' + (threadID.length) + ']'] = "fbid:" + ctx.userID;
+        form['message_batch[0][client_thread_id]'] = "root:" + messageAndOTID;
         log.info("Sending message to multiple users: " + threadID);
       } else {
-        form['message_batch[0][thread_fbid]'] = threadID;
         // This means that threadID is the id of a user, and the chat
         // is a single person chat
         if(isSingleUser) {
-          form['message_batch[0][client_thread_id]'] = "user:" + threadID;
           form['message_batch[0][specific_to_list][0]'] = "fbid:" + threadID;
           form['message_batch[0][specific_to_list][1]'] = "fbid:" + ctx.userID;
+          form['message_batch[0][other_user_fbid]'] = threadID;
+        } else {
+          form['message_batch[0][thread_fbid]'] = threadID;
         }
       }
 
@@ -179,12 +187,16 @@ module.exports = function(defaultFuncs, api, ctx) {
 
       defaultFuncs
         .post("https://www.facebook.com/ajax/mercury/send_messages.php", ctx.jar, form)
-        .then(utils.parseAndCheckLogin)
+        .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
         .then(function(resData) {
           if (!resData) {
             throw {error: "Send message failed."};
           }
-          if(resData.error) {
+
+          if (resData.error) {
+            if (resData.error === 1545012) {
+              log.warn("Got error 1545012. This might mean that you're not part of the conversation " + threadID);
+            }
             throw resData;
           }
 

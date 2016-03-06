@@ -10,12 +10,16 @@ var STATUS = {
   3: 'mobile',
 };
 
-function formatData(data, lastActiveTimes, time) {
-  return Object.keys(data).map(function(key) {
+function formatData(availableList, lastActiveTimes, time) {
+  return Object.keys(lastActiveTimes).map(function(key) {
+    var status = STATUS[0]; // offline
+    if(key in availableList) {
+      status = STATUS[availableList[key].a];
+    }
     return {
       lastActive: (lastActiveTimes[key] * 1000) || time,
       userID: key,
-      status: STATUS[data[key].a],
+      status: status,
     };
   });
 }
@@ -34,7 +38,7 @@ module.exports = function(defaultFuncs, api, ctx) {
 
     defaultFuncs
       .post("https://www.facebook.com/ajax/chat/buddy_list.php", ctx.jar, form)
-      .then(utils.parseAndCheckLogin)
+      .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
       .then(function(resData) {
         if (resData.error) {
           throw resData;

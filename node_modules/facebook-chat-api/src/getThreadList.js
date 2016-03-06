@@ -27,13 +27,13 @@ module.exports = function(defaultFuncs, api, ctx) {
 
     defaultFuncs
       .post("https://www.facebook.com/ajax/mercury/threadlist_info.php", ctx.jar, form)
-      .then(utils.parseAndCheckLogin)
+      .then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
       .then(function(resData) {
         if (resData.error) {
           throw resData;
         }
-
-        return callback(null, resData.payload.threads.map(utils.formatThread));
+        log.verbose("Response in getThreadList: " + JSON.stringify(resData.payload.threads));
+        return callback(null, (resData.payload.threads || []).map(utils.formatThread));
       })
       .catch(function(err) {
         log.error("Error in getThreadList", err);
