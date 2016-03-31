@@ -43,7 +43,7 @@ login({
     } else {
   		var input = '';
   		if (message.participantIDs.length > 2) {
-  			if (message.body.slice(0, 9) == '@ivonbot ' && message.body.length > 9) {
+  			if (message.body.slice(0, 9).toLowerCase() == '@ivonbot ' && message.body.length > 9) {
   				input = message.body.slice(9);
   			}
   		} else {
