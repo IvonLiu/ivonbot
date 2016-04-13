@@ -28,8 +28,8 @@ login({
 
   if (err) return console.error(err);
   api.listen(function callback(err, message) {
-
-    //console.log(JSON.stringify(message));
+    if (err) console.error(err);
+    console.log(message.body);
     if (!message) return;
 
     if (message.attachments.length > 0
@@ -42,7 +42,7 @@ login({
       chessRequest(api, message);
     } else {
   		var input = '';
-  		if (message.participantIDs.length > 2) {
+  		if (message.isGroup) {
   			if (message.body.slice(0, 9).toLowerCase() == '@ivonbot ' && message.body.length > 9) {
   				input = message.body.slice(9);
   			}
@@ -387,8 +387,5 @@ function sendMatrix(api, message, matrix) {
   } // end of for loop
 
   results = [];
-
-  api.markAsRead(message.threadID, function(err) {
-    if (err) console.log(err);
-  });
+  
 }

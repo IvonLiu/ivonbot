@@ -229,6 +229,9 @@ function getGUID() {
 }
 
 function _formatAttachment(attachment1, attachment2) {
+  // TODO: THIS IS REALLY BAD
+  attachment2 = attachment2 || {id:"", image_data: {}};
+
   switch (attachment1.attach_type) {
     case "sticker":
       return {
@@ -328,19 +331,32 @@ function _formatAttachment(attachment1, attachment2) {
         duration: attachment1.metadata.duration,
       };
     default:
-      throw new Error("unrecognized attach_file " + attachment1.attach_type);
+      throw new Error("unrecognized attach_file `" + JSON.stringify(attachment1) + "`");
   }
 }
 
 function formatAttachment(attachments, attachmentIds, attachmentMap, shareMap) {
   attachmentMap = shareMap || attachmentMap;
   return attachments ? attachments.map(function(val, i) {
-    // TODO: THIS IS REALLY BAD
     if (!attachmentMap || !attachmentIds || !attachmentMap[attachmentIds[i]]){
-      return _formatAttachment(val, {id:"", image_data: {}});
+      return _formatAttachment(val);
     }
     return _formatAttachment(val, attachmentMap[attachmentIds[i]]);
   }) : [];
+}
+
+function formatDeltaMessage(m){
+  var md = m.delta.messageMetadata;
+  return {
+    type: "message",
+    senderID: md.actorFbId,
+    body: m.delta.body,
+    threadID: (md.threadKey.threadFbId || md.threadKey.otherUserFbId).toString(),
+    messageID: md.messageId,
+    attachments: (m.delta.attachments || []).map(v => _formatAttachment(v.mercury)),
+    timestamp: md.timestamp,
+    isGroup: !!md.threadKey.threadFbId
+  }
 }
 
 function formatMessage(m) {
@@ -352,7 +368,7 @@ function formatMessage(m) {
     participantNames: (originalMessage.group_thread_info ? originalMessage.group_thread_info.participant_names : [originalMessage.sender_name.split(' ')[0]]),
     participantIDs: (originalMessage.group_thread_info ? originalMessage.group_thread_info.participant_ids.map(function(v) {return v.toString();}) : [originalMessage.sender_fbid]),
     body: originalMessage.body,
-    threadID: originalMessage.tid && originalMessage.tid.split(".")[0] === "id" ? originalMessage.tid.split('.')[1] : originalMessage.other_user_fbid,
+    threadID: originalMessage.tid && originalMessage.tid.split(".")[0] === "id" ? originalMessage.tid.split('.')[1] : originalMessage.thread_fbid || originalMessage.other_user_fbid,
     threadName: (originalMessage.group_thread_info ? originalMessage.group_thread_info.name : originalMessage.sender_name),
     location: originalMessage.coordinates ? originalMessage.coordinates : null,
     messageID: originalMessage.mid ? originalMessage.mid.toString() : originalMessage.message_id,
@@ -364,6 +380,7 @@ function formatMessage(m) {
   };
 
   if(m.type === "pages_messaging") obj.pageID = m.realtime_viewer_fbid.toString();
+  obj.isGroup = obj.participantIDs.length > 2;
 
   return obj;
 }
@@ -384,6 +401,8 @@ function formatTyp(event) {
     isTyping: !!event.st,
     from: event.from.toString(),
     threadID: (event.to || event.thread_fbid || event.from).toString(),
+    fromMobile: !!event.from_mobile,
+    // TODO: remove this in the next release
     from_mobile: !!event.from_mobile,
     userID: (event.realtime_viewer_fbid || event.from).toString(),
     type: 'typ',
@@ -394,8 +413,16 @@ function formatReadReceipt(event) {
   return {
     reader: event.reader.toString(),
     time: event.time,
-    threadID: event.realtime_viewer_fbid.toString(),
+    threadID: (event.thread_fbid || event.reader).toString(),
     type: 'read_receipt',
+  };
+}
+
+function formatRead(event) {
+  return {
+    threadID: ((event.chat_ids && event.chat_ids[0]) || (event.thread_fbids && event.thread_fbids[0])).toString(),
+    time: event.timestamp,
+    type: 'read'
   };
 }
 
@@ -440,6 +467,7 @@ function makeDefaults(html, userID) {
     ttstamp += fb_dtsg.charCodeAt(i);
   }
   ttstamp += '2';
+  var revision = getFrom(html, "revision\":",",");
 
   function mergeWithDefaults(obj) {
     if (!obj) return {};
@@ -447,7 +475,7 @@ function makeDefaults(html, userID) {
     var newObj = {
       __user: userID,
       __req: (reqCounter++).toString(36),
-      __rev: getFrom(html, "revision\":",","),
+      __rev: revision,
       __a: 1,
       fb_dtsg: fb_dtsg,
       ttstamp: ttstamp,
@@ -521,8 +549,10 @@ function parseAndCheckLogin(jar, defaultFuncs) {
           && Array.isArray(res.jsmods.require[0])
           && res.jsmods.require[0][0] === "Cookie") {
         res.jsmods.require[0][3][0] = res.jsmods.require[0][3][0].replace("_js_", "");
-        var cookie = formatCookie(res.jsmods.require[0][3]);
+        var cookie = formatCookie(res.jsmods.require[0][3], "facebook");
+        var cookie2 = formatCookie(res.jsmods.require[0][3], "messenger");
         jar.setCookie(cookie, "https://www.facebook.com");
+        jar.setCookie(cookie2, "https://www.messenger.com");
       }
 
       if (res.error === 1357001) {
@@ -537,7 +567,11 @@ function saveCookies(jar) {
   return function(res) {
     var cookies = res.headers['set-cookie'] || [];
     cookies.map(function (c) {
-      jar.setCookie(c, "https://www.facebook.com");
+      if (c.indexOf(".facebook.com") > -1) {
+        jar.setCookie(c, "https://www.facebook.com");
+      }
+      var c2 = c.replace(/domain=\.facebook\.com/, "domain=.messenger.com");
+      jar.setCookie(c2, "https://www.messenger.com");
     });
     return res;
   };
@@ -559,8 +593,8 @@ function formatDate(date) {
     h+':'+m+':'+s+' GMT';
 }
 
-function formatCookie(arr) {
-  return arr[0]+"="+arr[1]+"; Path=" + arr[3] + "; Domain=facebook.com";
+function formatCookie(arr, url) {
+  return arr[0]+"="+arr[1]+"; Path=" + arr[3] + "; Domain="+url+".com";
 }
 
 function formatThread(data) {
@@ -611,6 +645,13 @@ function formatPresence(presence, userID) {
   };
 }
 
+function getAppState(jar){
+  return jar
+    .getCookies("https://www.facebook.com")
+    .concat(jar.getCookies("https://facebook.com"))
+    .concat(jar.getCookies("https://www.messenger.com"));
+}
+
 module.exports = {
   isReadableStream: isReadableStream,
   get: get,
@@ -630,13 +671,16 @@ module.exports = {
   saveCookies: saveCookies,
   getType: getType,
   formatMessage: formatMessage,
+  formatDeltaMessage: formatDeltaMessage,
   formatEvent: formatEvent,
   formatPresence: formatPresence,
   formatTyp: formatTyp,
   formatCookie: formatCookie,
   formatThread: formatThread,
   formatReadReceipt: formatReadReceipt,
+  formatRead: formatRead,
   generatePresence: generatePresence,
   generateAccessiblityCookie: generateAccessiblityCookie,
   formatDate: formatDate,
+  getAppState: getAppState,
 };
