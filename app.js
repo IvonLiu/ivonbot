@@ -15,12 +15,6 @@ http.createServer(function(req, res) {
   res.end("");
 }).listen(process.env.PORT || 5000);
 
-setInterval(function() {
-	rp(config.bot_url).then(function(response) {
-		console.log('pong');
-	});
-}, 300000);
-
 login({
   email: config.username,
   password: config.password
@@ -387,5 +381,5 @@ function sendMatrix(api, message, matrix) {
   } // end of for loop
 
   results = [];
-  
+
 }
