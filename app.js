@@ -26,41 +26,37 @@ login({
     console.log(message.body);
     if (!message) return;
 
-    if (message.attachments.length > 0
-          && message.attachments[0]
-          && message.attachments[0].image
-          && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=')
-          && message.body
-          && message.body.includes('Ivonbot to move')
-          ) {
+    if (message.attachments.length > 0 && message.attachments[0] && message.attachments[0].image && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=') && message.body && message.body.includes('Ivonbot to move')) {
       chessRequest(api, message);
     } else {
-  		var input = '';
-  		if (message.isGroup) {
-  			if (message.body.slice(0, 9).toLowerCase() == '@ivonbot ' && message.body.length > 9) {
-  				input = message.body.slice(9);
-  			}
-  		} else {
-  			input = message.body;
-  		}
+      var input = '';
+      if (message.isGroup) {
+        if (message.body.slice(0, 9).toLowerCase() == '@ivonbot ' && message.body.length > 9) {
+          input = message.body.slice(9);
+        }
+      } else {
+        input = message.body;
+      }
 
       if (input) {
 
-  			console.log('Received message: ' + input);
-  			if (input.length > 250) {
-  				input = input.slice(0, 250);
-  				console.log('Shortening input to: ' + input);
-  			}
+        console.log('Received message: ' + input);
+        if (input.length > 250) {
+          input = input.slice(0, 250);
+          console.log('Shortening input to: ' + input);
+        }
 
         if (input.slice(0, 7) == '--echo ' && input.length > 7) {
           echoRequest(api, message, input.slice(7));
         } else if (input.slice(0, 10) == '--inverse ' && input.length > 10) {
-  				inverseRequest(api, message, input.slice(10));
-  			} else if (input.slice(0, 6) == '--det ' && input.length > 6) {
-  				determinantRequest(api, message, input.slice(6));
-  			} else {
-  				pandoraRequest(api, message, input);
-  			}
+          inverseRequest(api, message, input.slice(10));
+        } else if (input.slice(0, 6) == '--det ' && input.length > 6) {
+          determinantRequest(api, message, input.slice(6));
+        } else if (input.slice(0, 12) == '--translate ' && input.length > 12) {
+          translateRequest(api, message, input.slice(12));
+        } else {
+          pandoraRequest(api, message, input);
+        }
 
       }
     }
@@ -83,53 +79,80 @@ function chessRequest(api, message) {
 
   chess.resetGame();
   chess.initializeFromFen(fen);
-  chess.search(function(bestMove, value, timeTaken, ply){
+  chess.search(function(bestMove, value, timeTaken, ply) {
     var move = chess.getMoveSAN(bestMove);
-    api.sendMessage({body: '@fbchess '+move}, message.threadID);
+    api.sendMessage({
+      body: '@fbchess ' + move
+    }, message.threadID);
   }, 99, null);
 }
 
 function echoRequest(api, message, input) {
-  api.sendMessage({body: input}, message.threadID);
+  api.sendMessage({
+    body: input
+  }, message.threadID);
 }
 
 function inverseRequest(api, message, input) {
-	var matrix = parseMatrix(input);
+  var matrix = parseMatrix(input);
   if (!matrix) {
     console.log('Matrix cannot be parsed');
-    api.sendMessage({body: 'This is not a valid matrix'}, message.threadID);
+    api.sendMessage({
+      body: 'This is not a valid matrix'
+    }, message.threadID);
     return;
   }
   var inv = inverse(matrix);
   if (!inv) {
     console.log('Matrix has no inverse');
-    api.sendMessage({body: 'This matrix has no inverse'}, message.threadID);
+    api.sendMessage({
+      body: 'This matrix has no inverse'
+    }, message.threadID);
     return;
   }
   sendMatrix(api, message, inv);
 }
 
 function determinantRequest(api, message, input) {
-	var matrix = parseMatrix(input);
+  var matrix = parseMatrix(input);
   if (!matrix) {
     console.log('Matrix cannot be parsed');
-    api.sendMessage({body: 'This is not a valid matrix'}, message.threadID);
+    api.sendMessage({
+      body: 'This is not a valid matrix'
+    }, message.threadID);
     return;
   }
   var determinant = det(matrix);
-  api.sendMessage({body: 'The determinant is '+determinant}, message.threadID);
+  api.sendMessage({
+    body: 'The determinant is ' + determinant
+  }, message.threadID);
+}
+
+function translateRequest(api, message, input) {
+  var languages = input.split(' ')[0];
+  var phrase = input.slice(languages.length).trim();
+  var fromLang = languages.split(':')[0];
+  var toLang = languages.split(':')[1];
+  console.log('Translating [' + phrase + '] from ' + fromLang + ' to ' + toLang);
+  translate(fromLang, toLang, phrase).then(function(result) {
+    api.sendMessage({
+      body: result
+    }, message.threadID);
+  });
 }
 
 function pandoraRequest(api, message, input) {
-	rp('http://www.pandorabots.com/pandora/talk-xml?botid=9c7986ecfe378490&input='+encodeURIComponent(input)+'&custid='+message.threadID).then(function(response) {
-		xml2js.parseString(response, function(err, result) {
-			var reply = result.result.that[0];
-			console.log('Replying: ' + reply);
-			api.sendMessage({body: reply}, message.threadID);
-		});
-	}).catch(function(error) {
-		console.log(error);
-	});
+  rp('http://www.pandorabots.com/pandora/talk-xml?botid=9c7986ecfe378490&input=' + encodeURIComponent(input) + '&custid=' + message.threadID).then(function(response) {
+    xml2js.parseString(response, function(err, result) {
+      var reply = result.result.that[0];
+      console.log('Replying: ' + reply);
+      api.sendMessage({
+        body: reply
+      }, message.threadID);
+    });
+  }).catch(function(error) {
+    console.log(error);
+  });
 }
 /** End **/
 
@@ -176,7 +199,7 @@ function parseMatrix(data) {
     return undefined;
   }
   var matrix = [];
-  for (var i=0; i<rows.length; i++) {
+  for (var i = 0; i < rows.length; i++) {
     var cols = rows[i].split(',');
     if (cols.length == 0) {
       console.log('Parse error: matrix cannot have 0 columns');
@@ -187,7 +210,7 @@ function parseMatrix(data) {
       return undefined;
     }
     var row = [];
-    for (var j=0; j<cols.length; j++) {
+    for (var j = 0; j < cols.length; j++) {
       var num = Number(cols[j]);
       if (num || num == 0) {
         row.push(num);
@@ -209,10 +232,10 @@ function parseMatrix(data) {
 
 function det(matrix) {
   if (matrix.length == 2) {
-    return matrix[0][0]*matrix[1][1] - matrix[1][0]*matrix[0][1];
+    return matrix[0][0] * matrix[1][1] - matrix[1][0] * matrix[0][1];
   } else {
     var determinant = 0;
-    for (var j=0; j<matrix[0].length; j++) {
+    for (var j = 0; j < matrix[0].length; j++) {
       determinant += (matrix[0][j] * cof(matrix, 0, j));
     }
     return determinant;
@@ -220,15 +243,15 @@ function det(matrix) {
 }
 
 function cof(matrix, i, j) {
-  return Math.pow(-1, i+j) * minor(matrix, i, j);
+  return Math.pow(-1, i + j) * minor(matrix, i, j);
 }
 
 function minor(matrix, i, j) {
   var minorMat = [];
-  for (var row=0; row<matrix.length; row++) {
+  for (var row = 0; row < matrix.length; row++) {
     if (row != i) {
       var rowVector = [];
-      for (var col=0; col<matrix[row].length; col++) {
+      for (var col = 0; col < matrix[row].length; col++) {
         if (col != j) {
           rowVector.push(matrix[row][col]);
         }
@@ -241,9 +264,9 @@ function minor(matrix, i, j) {
 
 function transpose(matrix) {
   var transpose = [];
-  for (var j=0; j<matrix[0].length; j++) {
+  for (var j = 0; j < matrix[0].length; j++) {
     var vector = [];
-    for (var i=0; i<matrix.length; i++) {
+    for (var i = 0; i < matrix.length; i++) {
       vector.push(matrix[i][j]);
     }
     transpose.push(vector);
@@ -259,9 +282,9 @@ function adj(matrix) {
     ];
   } else {
     var cofMat = [];
-    for (var i=0; i<matrix.length; i++) {
+    for (var i = 0; i < matrix.length; i++) {
       var rowVector = [];
-      for (var j=0; j<matrix.length; j++) {
+      for (var j = 0; j < matrix.length; j++) {
         rowVector.push(cof(matrix, i, j));
       }
       cofMat.push(rowVector);
@@ -276,13 +299,13 @@ function inverse(matrix) {
     return undefined;
   } else {
     var adjugate = adj(matrix);
-    return multiply(1/determinant, adjugate);
+    return multiply(1 / determinant, adjugate);
   }
 }
 
 function multiply(k, matrix) {
-  for (var i=0; i<matrix.length; i++) {
-    for (var j=0; j<matrix.length; j++) {
+  for (var i = 0; i < matrix.length; i++) {
+    for (var j = 0; j < matrix.length; j++) {
       matrix[i][j] *= k;
     }
   }
@@ -290,33 +313,33 @@ function multiply(k, matrix) {
 }
 
 function pad(spaces, str) {
-	var pad = '';
-	for (var i=0; i<spaces; i++) {
-		pad += ' ';
-	}
-	if (typeof str === 'undefined') {
-		return pad;
-	}
-	return (pad + str).slice(-pad.length);
+  var pad = '';
+  for (var i = 0; i < spaces; i++) {
+    pad += ' ';
+  }
+  if (typeof str === 'undefined') {
+    return pad;
+  }
+  return (pad + str).slice(-pad.length);
 }
 
 function formatMatrix(matrix) {
   var str = '$';
   str += '\\begin{bmatrix}\n';
-	for (var row=0; row<matrix.length; row++) {
-		var rowStr = '';
-		for (var col=0; col<matrix[row].length; col++) {
-			rowStr += matrix[row][col].toFixed(2);
-      if (col != matrix[row].length-1) {
+  for (var row = 0; row < matrix.length; row++) {
+    var rowStr = '';
+    for (var col = 0; col < matrix[row].length; col++) {
+      rowStr += matrix[row][col].toFixed(2);
+      if (col != matrix[row].length - 1) {
         rowStr += '&';
       }
-		}
-    if (row != matrix.length-1) {
+    }
+    if (row != matrix.length - 1) {
       str += (rowStr + '\\\\\n');
     } else {
       str += (rowStr + '\n');
     }
-	}
+  }
   str += '\\end{bmatrix}';
   str += '$';
   console.log(str);
@@ -379,7 +402,27 @@ function sendMatrix(api, message, matrix) {
     });
 
   } // end of for loop
-
   results = [];
+}
+/** End **/
 
+/** Translation helpers **/
+function translate(fromLang, toLang, phrase) {
+  var options = {
+    method: 'GET',
+    url: 'https://translate.googleapis.com/translate_a/single',
+    qs: {
+      client: 'gtx',
+      sl: fromLang,
+      tl: toLang,
+      dt: 't',
+      q: phrase
+    },
+    headers: {
+      'cache-control': 'no-cache'
+    }
+  };
+  return rp(options).then(function(response) {
+    return response.match(/"(.*?)"/)[1]
+  });
 }
