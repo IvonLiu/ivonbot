@@ -25,6 +25,7 @@ login({
     if (err) console.error(err);
     console.log(message.body);
     if (!message) return;
+    if (!message.body) return;
 
     if (message.attachments.length > 0 && message.attachments[0] && message.attachments[0].image && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=') && message.body && message.body.includes('Ivonbot to move')) {
       chessRequest(api, message);
