@@ -21,11 +21,14 @@ login({
 }, function callback(err, api) {
 
   if (err) return console.error(err);
+
   api.listen(function callback(err, message) {
-    if (err) console.error(err);
+
+    if (err) return console.error(err);
+    if (!message) return console.log('Message is undefined');
+    if (!message.body) return console.log('Message body is undefined');
+
     console.log(message.body);
-    if (!message) return;
-    if (!message.body) return;
 
     if (message.attachments.length > 0 && message.attachments[0] && message.attachments[0].image && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=') && message.body && message.body.includes('Ivonbot to move')) {
       chessRequest(api, message);
@@ -130,16 +133,22 @@ function determinantRequest(api, message, input) {
 }
 
 function translateRequest(api, message, input) {
-  var languages = input.split(' ')[0];
-  var phrase = input.slice(languages.length).trim();
-  var fromLang = languages.split(':')[0];
-  var toLang = languages.split(':')[1];
-  console.log('Translating [' + phrase + '] from ' + fromLang + ' to ' + toLang);
-  translate(fromLang, toLang, phrase).then(function(result) {
+  if (input.slice(0, 16) == '--list-languages') {
     api.sendMessage({
-      body: result
+      body: getLanguageList()
     }, message.threadID);
-  });
+  } else {
+    var languages = input.split(' ')[0];
+    var phrase = input.slice(languages.length).trim();
+    var fromLang = languages.split(':')[0];
+    var toLang = languages.split(':')[1];
+    console.log('Translating [' + phrase + '] from ' + fromLang + ' to ' + toLang);
+    translate(fromLang, toLang, phrase).then(function(result) {
+      api.sendMessage({
+        body: result
+      }, message.threadID);
+    });
+  }
 }
 
 function pandoraRequest(api, message, input) {
@@ -408,19 +417,137 @@ function sendMatrix(api, message, matrix) {
 /** End **/
 
 /** Translation helpers **/
+var languages = {
+  afrikaans: 'af',
+  albanian: 'sq',
+  amharic: 'am',
+  arabic: 'ar',
+  armenian: 'hy',
+  azerbaijani: 'az',
+  basque: 'eu',
+  belarusian: 'be',
+  bengali: 'bn',
+  bosnian: 'bs',
+  bulgarian: 'bg',
+  catalan: 'ca',
+  cebuano: 'ceb',
+  chichewa: 'ny',
+  chinese: 'zh-CN',
+  corsican: 'co',
+  croatian: 'hr',
+  czech: 'cs',
+  danish: 'da',
+  dutch: 'nl',
+  english: 'en',
+  esperanto: 'eo',
+  estonian: 'et',
+  filipino: 'tl',
+  finnish: 'fi',
+  french: 'fr',
+  frisian: 'fy',
+  galician: 'gl',
+  georgian: 'ka',
+  german: 'de',
+  greek: 'el',
+  gujarati: 'gu',
+  haitian_creole: 'ht',
+  hausa: 'ha',
+  hawaiian: 'haw',
+  hebrew: 'iw',
+  hindi: 'hi',
+  hmong: 'hmn',
+  hungarian: 'hu',
+  icelandic: 'is',
+  igbo: 'ig',
+  indonesian: 'id',
+  irish: 'ga',
+  italian: 'it',
+  japanese: 'ja',
+  javanese: 'jw',
+  kannada: 'kn',
+  kazakh: 'kk',
+  khmer: 'km',
+  korean: 'ko',
+  kurdish: 'ku',
+  kyrgyz: 'ky',
+  lao: 'lo',
+  latin: 'la',
+  latvian: 'lv',
+  lithuanian: 'lt',
+  luxembourgish: 'lb',
+  macedonian: 'mk',
+  malagasy: 'mg',
+  malay: 'ms',
+  malayalam: 'ml',
+  maltese: 'mt',
+  maori: 'mi',
+  marathi: 'mr',
+  mongolian: 'mn',
+  myanmar: 'my',
+  nepali: 'ne',
+  norwegian: 'no',
+  pashto: 'ps',
+  persian: 'fa',
+  polish: 'pl',
+  portuguese: 'pt',
+  punjabi: 'pa',
+  romanian: 'ro',
+  russian: 'ru',
+  samoan: 'sm',
+  scots_gaelic: 'gd',
+  serbian: 'sr',
+  sesotho: 'st',
+  shona: 'sn',
+  sindhi: 'sd',
+  sinhala: 'si',
+  slovak: 'sk',
+  slovenian: 'sl',
+  somali: 'so',
+  spanish: 'es',
+  sundanese: 'su',
+  swahili: 'sw',
+  swedish: 'sv',
+  tajik: 'tg',
+  tamil: 'ta',
+  telugu: 'te',
+  thai: 'th',
+  turkish: 'tr',
+  ukrainian: 'uk',
+  urdu: 'ur',
+  uzbek: 'uz',
+  vietnamese: 'vi',
+  welsh: 'cy',
+  xhosa: 'xh',
+  yiddish: 'yi',
+  yoruba: 'yo',
+  zulu: 'zu'
+}
+
+function getLanguageList() {
+  var s = '';
+  for (var key in languages) {
+    s += key + '\n';
+  }
+  return s;
+}
+
+function getTranslationLanguage(readable) {
+  readable = readable.replace(/ *\([^)]*\) */g, "");
+  readable = readable.toLowerCase();
+  readable = readable.replace(' ', '_');
+  return languages[readable] || 'auto';
+}
+
 function translate(fromLang, toLang, phrase) {
   var options = {
     method: 'GET',
     url: 'https://translate.googleapis.com/translate_a/single',
     qs: {
       client: 'gtx',
-      sl: fromLang,
-      tl: toLang,
+      sl: getTranslationLanguage(fromLang),
+      tl: getTranslationLanguage(toLang),
       dt: 't',
       q: phrase
-    },
-    headers: {
-      'cache-control': 'no-cache'
     }
   };
   return rp(options).then(function(response) {
