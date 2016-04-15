@@ -1,5 +1,5 @@
 {
-  "name": "ivonbot-chat",
+  "name": "ivonbot",
   "version": "1.0.0",
   "description": "Facebook chatbot",
   "main": "app.js",
