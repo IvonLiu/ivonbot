@@ -15,6 +15,12 @@ http.createServer(function(req, res) {
   res.end("");
 }).listen(process.env.PORT || 5000);
 
+setInterval(function() {
+	rp('http://www.facebook.com/').then(function(response) {
+		console.log('pinging Facebook');
+	});
+}, 300000);
+
 login({
   email: config.username,
   password: config.password
