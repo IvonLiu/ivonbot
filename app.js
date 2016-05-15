@@ -1,5 +1,4 @@
 var http = require('http');
-var config = require('./config.json');
 var fs = require('fs');
 var mjAPI = require("./node_modules/mathjax-node/lib/mj-single");
 var login = require('facebook-chat-api');
@@ -22,8 +21,8 @@ setInterval(function() {
 }, 300000);
 
 login({
-  email: config.username,
-  password: config.password
+  email: process.env.username,
+  password: process.env.password
 }, function callback(err, api) {
 
   if (err) return console.error(err);
