@@ -5,10 +5,12 @@ var login = require('facebook-chat-api');
 var rp = require('request-promise');
 var xml2js = require('xml2js');
 var chess = require('./garbochess.js');
+var async = require('async');
 
 var fblogin = process.env.fblogin || require('./config.json').fblogin;
 var password = process.env.password || require('./config.json').password;
 var god = process.env.god || require('./config.json').god;
+var botmaster = process.env.botmaster || require('./config.json').botmaster;
 
 var enabled = true;
 
@@ -41,6 +43,10 @@ login({
 
     console.log(message.senderID + ": " + message.body);
 
+    if (enabled && message.body.split(' ').indexOf(botmaster) > -1) {
+      surveillance(api, message);
+    }
+
     if (enabled && message.attachments.length > 0 && message.attachments[0] && message.attachments[0].image && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=') && message.body && message.body.includes('Ivonbot to move')) {
       chessRequest(api, message);
     } else {
@@ -63,6 +69,12 @@ login({
 
         if (message.senderID == god && input.slice(0, 6) == '--aws ' && input.length > 6) {
           awsRequest(api, message, input.slice(6));
+        } else if (enabled && message.senderID == god && input.slice(0, 15) == '--conversations') {
+          conversationsRequest(api, message);
+        } else if (enabled && message.senderID == god && input.slice(0, 13) == '--fetch-name ' && input.length > 13) {
+          fetchNameRequest(api, message, input.slice(13));
+        } else if (enabled && message.senderID == god && input.slice(0, 7) == '--send ' && input.length > 7) {
+          sendRequest(api, message, input.slice(7));
         } else if (enabled && input.slice(0, 7) == '--echo ' && input.length > 7) {
           echoRequest(api, message, input.slice(7));
         } else if (enabled && input.slice(0, 10) == '--inverse ' && input.length > 10) {
@@ -80,6 +92,21 @@ login({
 
   });
 });
+
+/** Ones not speak poorly of the botmaster **/
+function surveillance(api, message) {
+  api.getThreadInfo(message.threadID, function(err, thread) {
+    formatThreadInfo(api, message.threadID, thread, function(err, formatted) {
+      api.getUserInfo(message.senderID, function(err, obj) {
+        var name = obj[message.senderID].name;
+        var msg = name + ' mentioned your name in\n\n' + formatted + '\n\n' + 'Message:\n\n' + message.body;
+        api.sendMessage({
+          body: msg
+        }, god);
+      });
+    });
+  });
+}
 
 /** Handle different types of requests **/
 function chessRequest(api, message) {
@@ -107,11 +134,58 @@ function chessRequest(api, message) {
 function awsRequest(api, message, input) {
   if (process.env.god) {
     if (input == 'start') {
+      console.log('Starting AWS');
       enabled = true;
+      api.sendMessage({
+        body: 'Starting AWS'
+      }, god);
     } else if (input == 'stop') {
+      console.log('Stopping AWS');
       enabled = false;
+      api.sendMessage({
+        body: 'Stopping AWS'
+      }, god);
+    } else if (input == 'status') {
+      api.sendMessage({
+        body: enabled ? 'Enabled' : 'Disabled'
+      }, god);
     }
   }
+}
+
+function conversationsRequest(api, message) {
+  api.getThreadList(0, 1000, function(err, arr) {
+
+    async.map(arr, function(thread, callback) {
+      formatThreadInfo(api, thread.threadID, thread, callback);
+    }, function(err, formatted) {
+      if (err) return;
+      var s = formatted.join('\n');
+      api.sendMessage({
+        body: s
+      }, god);
+    });
+
+  });
+}
+
+function fetchNameRequest(api, message, input) {
+  // input is threadID
+  api.getThreadInfo(input, function(error, info) {
+    formatThreadInfo(api, input, info, function(err, formatted) {
+      api.sendMessage({
+        body: formatted
+      }, god);
+    });
+  });
+}
+
+function sendRequest(api, message, input) {
+  var id = input.split(' ')[0];
+  var msg = input.slice(id.length).trim();
+  api.sendMessage({
+    body: msg
+  }, id);
 }
 
 function echoRequest(api, message, input) {
@@ -577,3 +651,25 @@ function translate(fromLang, toLang, phrase) {
     return response.match(/"(.*?)"/)[1]
   });
 }
+
+/** End **/
+
+/** FB Helpers **/
+
+function formatThreadInfo(api, threadID, thread, callback) {
+
+  api.getUserInfo(thread.participantIDs, function(err, users) {
+    if (err) return callback(err);
+    var names = Object.keys(users).map(function(userID) {
+      return userID + ': ' + users[userID].name;
+    });
+    var name = thread.name || 'Unnamed';
+    var s = threadID + ': ' + name + ', {\n\t';
+    s += names.join(',\n\t');
+    s += '\n}';
+    callback(null, s);
+  });
+
+}
+
+/** End **/
