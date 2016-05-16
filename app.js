@@ -6,6 +6,12 @@ var rp = require('request-promise');
 var xml2js = require('xml2js');
 var chess = require('./garbochess.js');
 
+var fblogin = process.env.fblogin || require('./config.json').fblogin;
+var password = process.env.password || require('./config.json').password;
+var god = process.env.god || require('./config.json').god;
+
+var enabled = true;
+
 http.createServer(function(req, res) {
   console.log("ping");
   res.writeHead(200, {
@@ -21,8 +27,8 @@ setInterval(function() {
 }, 300000);
 
 login({
-  email: process.env.username,
-  password: process.env.password
+  email: fblogin,
+  password: password
 }, function callback(err, api) {
 
   if (err) return console.error(err);
@@ -33,9 +39,9 @@ login({
     if (!message) return console.log('Message is undefined');
     if (!message.body) return console.log('Message body is undefined');
 
-    console.log(message.body);
+    console.log(message.senderID + ": " + message.body);
 
-    if (message.attachments.length > 0 && message.attachments[0] && message.attachments[0].image && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=') && message.body && message.body.includes('Ivonbot to move')) {
+    if (enabled && message.attachments.length > 0 && message.attachments[0] && message.attachments[0].image && message.attachments[0].image.includes('https://www.facebook.com/messaging/chessboard/?fen=') && message.body && message.body.includes('Ivonbot to move')) {
       chessRequest(api, message);
     } else {
       var input = '';
@@ -55,15 +61,17 @@ login({
           console.log('Shortening input to: ' + input);
         }
 
-        if (input.slice(0, 7) == '--echo ' && input.length > 7) {
+        if (message.senderID == god && input.slice(0, 6) == '--aws ' && input.length > 6) {
+          awsRequest(api, message, input.slice(6));
+        } else if (enabled && input.slice(0, 7) == '--echo ' && input.length > 7) {
           echoRequest(api, message, input.slice(7));
-        } else if (input.slice(0, 10) == '--inverse ' && input.length > 10) {
+        } else if (enabled && input.slice(0, 10) == '--inverse ' && input.length > 10) {
           inverseRequest(api, message, input.slice(10));
-        } else if (input.slice(0, 6) == '--det ' && input.length > 6) {
+        } else if (enabled && input.slice(0, 6) == '--det ' && input.length > 6) {
           determinantRequest(api, message, input.slice(6));
-        } else if (input.slice(0, 12) == '--translate ' && input.length > 12) {
+        } else if (enabled && input.slice(0, 12) == '--translate ' && input.length > 12) {
           translateRequest(api, message, input.slice(12));
-        } else {
+        } else if (enabled) {
           pandoraRequest(api, message, input);
         }
 
@@ -94,6 +102,16 @@ function chessRequest(api, message) {
       body: '@fbchess ' + move
     }, message.threadID);
   }, 99, null);
+}
+
+function awsRequest(api, message, input) {
+  if (process.env.god) {
+    if (input == 'start') {
+      enabled = true;
+    } else if (input == 'stop') {
+      enabled = false;
+    }
+  }
 }
 
 function echoRequest(api, message, input) {
