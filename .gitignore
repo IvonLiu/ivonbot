@@ -1,4 +1,6 @@
 config.json
+starter.sh
+logs
 
 # Elastic Beanstalk Files
 .ebextensions
