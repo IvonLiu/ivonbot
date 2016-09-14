@@ -11,16 +11,17 @@
 * [`api.getAppState`](#getAppState)
 * [`api.getCurrentUserID`](#getCurrentUserID)
 * [`api.getFriendsList`](#getFriendsList)
-* [`api.getOnlineUsers`](#getOnlineUsers)
 * [`api.getThreadHistory`](#getThreadHistory)
 * [`api.getThreadInfo`](#getThreadInfo)
 * [`api.getThreadList`](#getThreadList)
 * [`api.deleteThread`](#deleteThread)
 * [`api.getUserID`](#getUserID)
 * [`api.getUserInfo`](#getUserInfo)
+* [`api.handleMessageRequest`](#handleMessageRequest)
 * [`api.listen`](#listen)
 * [`api.logout`](#logout)
 * [`api.markAsRead`](#markAsRead)
+* [`api.muteThread`](#muteThread)
 * [`api.removeUserFromGroup`](#removeUserFromGroup)
 * [`api.searchForThread`](#searchForThread)
 * [`api.sendMessage`](#sendMessage)
@@ -319,20 +320,6 @@ login({email: "FB_EMAIL", password: "FB_PASSWORD"}, function callback (err, api)
 
 ---------------------------------------
 
-<a name="getOnlineUsers" />
-### api.getOnlineUsers([callback])
-
-Obtains users currently online and calls the callback with a list of the online users.
-
-__Arguments__
-
-* `callback(err, arr)`: A callback called when the query is done (either with an error or with null followed by an array `arr`). `arr`
-is an array of objects with the following keys: `lastActive`, `userID` and `status`. `status` is one of `['offline', 'idle', 'active', 'mobile']`.
-
-Look at [listen](#listen) for details on how to get updated presence.
-
----------------------------------------
-
 <a name="getThreadHistory" />
 ### api.getThreadHistory(threadID, start, end, timestamp, [callback])
 
@@ -359,7 +346,7 @@ __Arguments__
 ---------------------------------------
 
 <a name="getThreadList" />
-### api.getThreadList(start, end, callback)
+### api.getThreadList(start, end, type, callback)
 
 Will return information about threads.
 
@@ -367,6 +354,7 @@ __Arguments__
 
 * `start`: Start index in the list of recently used threads.
 * `end`: End index.
+* `type`: Optional String, can be 'inbox', 'pending', or 'archived'. Inbox is default.
 * `callback(err, arr)`: A callback called when the query is done (either with an error or with an confirmation object). `arr` is an array of thread object containing the following properties: `threadID`, <del>`participants`</del>, `participantIDs`, `formerParticipants`, `name`, `snippet`, `snippetHasAttachment`, `snippetAttachments`, `snippetSender`, `unreadCount`, `messageCount`, `imageSrc`, `timestamp`, `serverTimestamp`, `muteSettings`, `isCanonicalUser`, `isCanonical`, `canonicalFbid`, `isSubscribed`, `rootMessageThreadingID`, `folder`, `isArchived`, `recipientsLoadable`, `hasEmailParticipant`, `readOnly`, `canReply`, `composerEnabled`, `blockedParticipants`, `lastMessageID`.
 
 ---------------------------------------
@@ -455,11 +443,24 @@ login({email: "FB_EMAIL", password: "FB_PASSWORD"}, function callback (err, api)
 
 ---------------------------------------
 
+<a name="handleMessageRequest" />
+### api.handleMessageRequest(threadID, accept, [callback])
+
+Accept or ignore message request(s) with thread id `threadID`.
+
+__Arguments__
+
+* `threadID`: A threadID or array of threadIDs corresponding to the target thread(s). Can be numbers or strings.
+* `accept`: Boolean indicating the new status to assign to the message request(s); true for inbox, false to others.
+* `callback(err)`: A callback called when the query is done (with an error or with null).
+
+---------------------------------------
+
 <a name="listen" />
 ### api.listen(callback)
 
 Will call `callback` when a new message is received on this account.
-By default this won't receive events (joining/leaving a chat, title change etc...) but it can be activated with `api.setOptions({listenEvents: true})`.  This will by default ignore messages sent by the current account, you can enable listening to your own messages with `api.setOptions({selfListen: true})`. This returns `stopListening` that will stop the `listen` loop and is guaranteed to prevent any future calls to the callback given to `listen`. An immediate call to `stopListening` when an error occurs will prevent the listen function to continue.  
+By default this won't receive events (joining/leaving a chat, title change etc...) but it can be activated with `api.setOptions({listenEvents: true})`.  This will by default ignore messages sent by the current account, you can enable listening to your own messages with `api.setOptions({selfListen: true})`. This returns `stopListening` that will stop the `listen` loop and is guaranteed to prevent any future calls to the callback given to `listen`. An immediate call to `stopListening` when an error occurs will prevent the listen function to continue.
 
 __Arguments__
 
@@ -474,18 +475,20 @@ If `type` is `message`, the object will contain the following fields:
   + `threadID`: The threadID representing the thread in which the message was sent.
   + `messageID`: A string representing the message ID.
   + `attachments`: An array of attachments to the message.
-  + `isGroup`: boolean, true if this thread is a group thread (more than 2 participants). 
+  + `isGroup`: boolean, true if this thread is a group thread (more than 2 participants).
 
-If `attachments` contains an object with type is `"sticker"`, the same object will contain the following fields: `url`, `stickerID`, `packID`, `frameCount`, `frameRate`, `framesPerRow`, `framesPerCol`, `spriteURI`, `spriteURI2x`, `height`, `width`, `caption`, `description`.
+If `attachments` contains an object with type `"sticker"`, the object will contain the following fields: `url`, `stickerID`, `packID`, `frameCount`, `frameRate`, `framesPerRow`, `framesPerCol`, `spriteURI`, `spriteURI2x`, `height`, `width`, `caption`, `description`.
 
-If `attachments` contains an object with type is `"file"`, the same object will contain the following fields: `name`, `url`, `ID`, `fileSize`, `isMalicious`, `mimeType`.
+If `attachments` contains an object with type `"file"`, the object will contain the following fields: `name`, `url`, `ID`, `fileSize`, Malicious`, `mimeType`.
 
-If `attachments` contains an object with type is `"photo"`, the same object will contain the following fields:
+If `attachments` contains an object with type `"photo"`, the object will contain the following fields:
 `name`, `hiresUrl`, `thumbnailUrl`, `previewUrl`, `previewWidth`, `previewHeight`, `facebookUrl`, `ID`, `filename`, `mimeType`, `url`, `width`, `height`.
 
-If `attachments` contains an object with type is `"animated_image"`, the same object will contain the following fields: `name`, `facebookUrl`, `previewUrl`, `previewWidth`, `previewHeight`, `thumbnailUrl`, `ID`, `filename`, `mimeType`, `width`, `height`, `url`, `rawGifImage`, `rawWebpImage`, `animatedGifUrl`, `animatedGifPreviewUrl`, `animatedWebpUrl`, `animatedWebpPreviewUrl`
+If `attachments` contains an object with type `"animated_image"`, the object will contain the following fields: `name`, `facebookUrl`, `previewUrl`, `previewWidth`, `previewHeight`, `thumbnailUrl`, `ID`, `filename`, `mimeType`, `width`, `height`, `url`, `rawGifImage`, `rawWebpImage`, `animatedGifUrl`, `animatedGifPreviewUrl`, `animatedWebpUrl`, `animatedWebpPreviewUrl`
 
-If `attachments` contains an object with type is `"share"`, the same object will contain the following fields: `description`, `ID`, `subattachments`, `animatedImageSize`, `width`, `height`, `image`, `playable`, `duration`, `source`, `title`, `facebookUrl`, `url`.
+If `attachments` contains an object with type `"share"`, the object will contain the following fields: `description`, `ID`, `subattachments`, `animatedImageSize`, `width`, `height`, `image`, `playable`, `duration`, `source`, `title`, `facebookUrl`, `url`.
+
+If `attachments` contains an object with type `"video"`, the object will contain the following fields: `filename`, `thumbnailUrl`, `previewUrl`, `previewWidth`, `previewHeight`, `ID`, `url`, `width`, `height`, `duration`.
 
 If enabled through [setOptions](#setOptions), this will also handle events. In this case, `message` will be either a message (see above) or an event object with the following fields:
 - `type`: The string `"event"` or `"typ"`
@@ -590,6 +593,34 @@ login({email: "FB_EMAIL", password: "FB_PASSWORD"}, function callback (err, api)
     api.listen(function callback(err, message) {
         // Marks message as read immediately after they're sent
         api.markAsRead(message.threadID);
+    });
+});
+```
+
+---------------------------------------
+
+<a name="muteThread" />
+### api.muteThread(threadID, muteSeconds, [callback])
+
+Mute a chat for a period of time, or unmute a chat.
+
+__Arguments__
+
+* `threadID` - The ID of the chat you want to mute.
+* `muteSeconds` - Mute the chat for this amount of seconds. Use `0` to unmute a chat. Use '-1' to mute a chat indefinitely.
+* `callback(err)` - A callback called when the operation is done maybe with an object representing an error.
+
+__Example__
+
+```js
+var login = require("facebook-chat-api");
+
+login({email: "FB_EMAIL", password: "FB_PASSWORD"}, function callback (err, api) {
+    if(err) return console.error(err);
+
+    api.listen(function callback(err, message) {
+        // Mute all incoming chats for one minute
+        api.muteThread(message.threadID, 60);
     });
 });
 ```
